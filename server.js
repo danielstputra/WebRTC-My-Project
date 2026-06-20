@@ -17,12 +17,29 @@ wss.on('connection', (ws) => {
             // 1. Klien bergabung ke sebuah sesi (ruangan)
             if (type === 'join' || type === 'join-session' || type === 'register') {
                 const targetSessionId = sessionId || data.sessionId;
+                const role = data.role || (type === 'register' ? 'host' : 'client');
                 ws.sessionId = targetSessionId;
+                ws.role = role;
+
+                if (role === 'client') {
+                    // Cek apakah ada host di sesi ini
+                    const hostExists = sessions.has(targetSessionId) && 
+                        Array.from(sessions.get(targetSessionId)).some(client => client.role === 'host');
+                    
+                    if (!hostExists) {
+                        console.log(`⚠️ Sesi ${targetSessionId} ditolak: Host tidak aktif atau belum share screen.`);
+                        ws.send(JSON.stringify({ 
+                            type: 'auth-failed', 
+                            message: 'Host belum melakukan share screen atau Session ID salah.' 
+                        }));
+                        return;
+                    }
+                }
 
                 if (!sessions.has(targetSessionId)) sessions.set(targetSessionId, new Set());
                 sessions.get(targetSessionId).add(ws);
 
-                console.log(`👤 Klien terdaftar di Sesi: ${targetSessionId}`);
+                console.log(`👤 Klien terdaftar di Sesi: ${targetSessionId} sebagai ${role}`);
 
                 if (type === 'join' || type === 'join-session') {
                     sessions.get(targetSessionId).forEach(client => {
