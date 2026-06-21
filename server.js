@@ -74,6 +74,18 @@ wss.on('connection', (ws) => {
         if (ws.sessionId && sessions.has(ws.sessionId)) {
             const room = sessions.get(ws.sessionId);
             room.delete(ws);
+
+            // Notify remaining clients in the room
+            room.forEach(client => {
+                if (client.readyState === WebSocket.OPEN) {
+                    client.send(JSON.stringify({ 
+                        type: 'peer-left', 
+                        peerId: ws.role === 'host' ? 'host' : 'client',
+                        role: ws.role
+                    }));
+                }
+            });
+
             // Bersihkan memori jika ruangan kosong
             if (room.size === 0) {
                 sessions.delete(ws.sessionId);
